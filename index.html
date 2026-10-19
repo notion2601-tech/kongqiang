@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>《空枪》数字考据档案库</title>
+    <style>
+        :root {
+            --bg-main: #041220;
+            --bg-card: #0B1F33;
+            --bg-detail: #071829;
+            --text-gold: #E3BD8D;
+            --text-dim: #8C99A6;
+            --text-light: #D2DDE8;
+            --accent-red: #81021F;
+            --border-color: #1A334D;
+        }
+        * { box-sizing: border-box; }
+        
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-gold);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0; padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+        
+        h1, h2, h3, h4, .nav-item, .card-title {
+            font-family: "Songti SC", "Noto Serif SC", "STSong", "SimSun", serif;
+            font-weight: 600;
+        }
+
+        /* 全局导航 */
+        .sidebar {
+            width: 100%; background: rgba(4, 18, 32, 0.98);
+            border-bottom: 1px solid var(--border-color);
+            backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 10;
+        }
+        .sidebar h1 {
+            text-align: center; font-size: 18px; color: var(--text-gold);
+            letter-spacing: 3px; padding: 14px 0 10px 0; margin: 0 16px; border-bottom: 1px dashed var(--border-color);
+        }
+        .nav-container { display: flex; overflow-x: auto; padding: 0 8px; scrollbar-width: none; }
+        .nav-container::-webkit-scrollbar { display: none; }
+        .nav-item {
+            padding: 10px 14px; font-size: 13px; letter-spacing: 1px;
+            cursor: pointer; white-space: nowrap; color: var(--text-dim); transition: all 0.3s;
+        }
+        .nav-item.active { color: var(--text-gold); border-bottom: 2px solid var(--accent-red); }
+
+        .main-content { flex: 1; padding: 16px; max-width: 900px; margin: 0 auto; width: 100%; }
+        .view-section { display: none; }
+        .view-section.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 档案大厅卡片 */
+        .toolbar { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+        .search-box {
+            width: 100%; background: transparent; border: 1px solid var(--border-color);
+            padding: 8px 12px; font-family: inherit; font-size: 13px; outline: none; color: var(--text-gold);
+        }
+        .search-box::placeholder { color: var(--text-dim); opacity: 0.6; }
+        
+        .filters { display: flex; overflow-x: auto; gap: 6px; scrollbar-width: none; }
+        .filters::-webkit-scrollbar { display: none; }
+        .filters span {
+            white-space: nowrap; border: 1px solid var(--border-color);
+            padding: 3px 10px; font-size: 12px; cursor: pointer; color: var(--text-dim);
+        }
+        .filters span.active { background: var(--accent-red); color: #E3BD8D; border-color: var(--accent-red); }
+
+        .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+        .card {
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            padding: 14px; position: relative; cursor: pointer; transition: border-color 0.2s;
+        }
+        .card:hover { border-color: var(--text-dim); }
+        .card::before {
+            content: "卷宗"; position: absolute; top: 12px; right: 12px;
+            color: var(--accent-red); border: 1px solid var(--accent-red);
+            padding: 1px 4px; font-size: 10px; transform: rotate(12deg); opacity: 0.8;
+        }
+        
+        .card-header { display: flex; gap: 14px; align-items: center; border-bottom: 1px solid rgba(26, 51, 77, 0.5); padding-bottom: 10px; margin-bottom: 10px; }
+        .photo-frame {
+            width: 48px; height: 64px; border: 1px solid var(--border-color); background: #000; flex-shrink: 0;
+            background-size: cover; background-position: center; filter: sepia(80%) grayscale(100%) contrast(110%);
+        }
+        .card-title-box { display: flex; flex-direction: column; gap: 2px; }
+        .card-title { margin: 0; font-size: 16px; color: var(--text-gold); }
+        .actor-name { font-size: 11px; color: var(--text-dim); }
+        
+        .tag {
+            background: transparent; color: var(--accent-red); border: 1px solid var(--accent-red);
+            padding: 1px 6px; font-size: 10px; display: inline-block; width: max-content; margin-bottom: 8px;
+        }
+        
+        .story-brief {
+            font-size: 12px; color: var(--text-light); line-height: 1.6;
+            display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+        }
+
+        /* 深度详情抽屉 */
+        .detail-panel {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-main); z-index: 100; overflow-y: auto; padding: 20px;
+        }
+        .detail-panel.active { display: block; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        
+        .detail-close {
+            position: sticky; top: 0; text-align: right; color: var(--accent-red);
+            font-size: 14px; cursor: pointer; padding: 4px 0 16px 0; background: var(--bg-main); z-index: 20;
+        }
+        
+        .detail-header { display: flex; gap: 16px; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 16px; margin-bottom: 16px; }
+        .detail-header .photo-frame { width: 70px; height: 90px; }
+        .detail-title { margin: 0; font-size: 22px; color: var(--text-gold); }
+        
+        .dossier-block { margin-bottom: 20px; border: 1px solid var(--border-color); background: var(--bg-detail); }
+        .dossier-title {
+            background: rgba(26, 51, 77, 0.4); padding: 8px 12px; font-size: 14px; color: var(--text-gold);
+            border-bottom: 1px solid var(--border-color); font-family: "Songti SC", serif;
+        }
+        .dossier-content { padding: 14px; font-size: 13px; color: var(--text-light); line-height: 1.8; }
+        
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px; }
+        .data-item { display: flex; flex-direction: column; gap: 2px; }
+        .data-item strong { color: var(--text-dim); font-weight: normal; font-size: 11px; }
+        .data-item span { color: var(--text-gold); }
+        
+        .fate-timeline { list-style: none; padding: 0; margin: 0; }
+        .fate-timeline li { position: relative; padding-left: 16px; margin-bottom: 12px; }
+        .fate-timeline li::before {
+            content: ''; position: absolute; left: 0; top: 6px; width: 6px; height: 6px;
+            border: 1px solid var(--accent-red); border-radius: 50%;
+        }
+
+        .quote-block {
+            background: rgba(0,0,0,0.2); border-left: 2px solid var(--accent-red);
+            padding: 12px; margin-bottom: 12px; border-radius: 2px;
+        }
+        .quote-text {
+            font-family: "Songti SC", "Noto Serif SC", serif; font-size: 14px;
+            color: var(--text-gold); font-style: italic; margin-bottom: 6px;
+        }
+        .quote-context { font-size: 12px; color: var(--text-dim); text-align: right; }
+
+        /* 编年史时间线 */
+        .year-block { margin-bottom: 24px; border-left: 2px solid var(--accent-red); padding-left: 16px; position: relative; }
+        .year-block::before { content: ''; position: absolute; left: -6px; top: 4px; width: 10px; height: 10px; background: var(--bg-main); border: 2px solid var(--text-gold); border-radius: 50%; }
+        .year-title { font-size: 18px; color: var(--text-gold); margin: 0 0 10px 0; font-family: "Songti SC", serif; }
+        .event-box { background: var(--bg-card); border: 1px solid var(--border-color); padding: 12px; margin-bottom: 10px; }
+        .event-title { font-size: 14px; color: var(--text-light); font-weight: bold; margin-bottom: 6px; }
+        .event-desc { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+        .event-focus { color: var(--text-gold); }
+        
+        /* 重案现场 */
+        .case-file { background: var(--bg-card); border: 1px solid var(--border-color); margin-bottom: 24px; }
+        .case-header {
+            background: rgba(129, 2, 31, 0.15); padding: 12px; border-bottom: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .case-id { font-family: monospace; font-size: 12px; color: var(--accent-red); border: 1px solid var(--accent-red); padding: 2px 6px; }
+        .case-title { font-size: 16px; color: var(--text-gold); margin: 0; font-family: "Songti SC", serif; }
+        .case-img { width: 100%; height: 160px; background-size: cover; background-position: center; filter: sepia(30%) grayscale(20%) contrast(110%); border-bottom: 1px solid var(--border-color); }
+        .case-content { padding: 16px; }
+        .case-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: var(--text-dim); margin-bottom: 12px; border-bottom: 1px dashed var(--border-color); padding-bottom: 12px; }
+        .case-meta span { color: var(--text-light); }
+        .case-report { font-size: 13px; color: var(--text-light); line-height: 1.8; }
+        .case-report strong { color: var(--accent-red); }
+        .case-category-title { font-size: 18px; color: var(--text-gold); border-bottom: 1px dashed var(--border-color); padding-bottom: 8px; margin: 30px 0 16px 0; }
+        .case-category-title:first-child { margin-top: 0; }
+        
+        /* 关键道具（原物证细节） */
+        .evidence-container { display: flex; flex-direction: column; gap: 16px; }
+        .evidence-card {
+            background: #0E2237; border: 1px solid var(--border-color); border-top: 4px solid var(--accent-red);
+            position: relative; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+        }
+        .evidence-tag {
+            position: absolute; top: -12px; right: 12px; background: var(--bg-main); color: var(--accent-red);
+            border: 1px solid var(--accent-red); padding: 2px 8px; font-size: 11px; font-family: monospace; letter-spacing: 1px;
+        }
+        .evidence-img-wrap { width: 100%; height: 160px; background: #000; border: 1px dashed var(--border-color); padding: 4px; }
+        .evidence-img { width: 100%; height: 100%; background-size: cover; background-position: center; filter: sepia(50%) contrast(120%) grayscale(30%); }
+        .evidence-info h4 { margin: 0 0 6px 0; font-size: 16px; color: var(--text-gold); font-family: "Songti SC", serif; }
+        .evidence-info p { margin: 0; font-size: 12px; color: var(--text-light); line-height: 1.7; font-family: monospace; letter-spacing: 0.5px; }
+        .evidence-info strong { color: var(--text-dim); }
+
+        /* 双人交锋页面 */
+        .duel-header {
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(129, 2, 31, 0.1); border: 1px solid var(--border-color);
+            padding: 20px; margin-bottom: 20px;
+        }
+        .duel-side { text-align: center; flex: 1; }
+        .duel-side h3 { margin: 0 0 4px 0; font-size: 20px; color: var(--text-gold); }
+        .duel-side p { margin: 0; font-size: 12px; color: var(--text-dim); }
+        .duel-vs {
+            font-family: "Songti SC", serif; font-size: 24px; color: var(--accent-red);
+            font-weight: bold; padding: 0 20px; font-style: italic;
+        }
+        .duel-timeline { position: relative; padding-left: 20px; border-left: 2px solid var(--accent-red); }
+        .duel-node { position: relative; margin-bottom: 28px; }
+        .duel-node::before {
+            content: ''; position: absolute; left: -27px; top: 4px; width: 12px; height: 12px;
+            background: var(--bg-main); border: 2px solid var(--text-gold); border-radius: 50%;
+        }
+        .duel-year { font-family: monospace; font-size: 14px; color: var(--accent-red); font-weight: bold; margin-bottom: 4px; }
+        .duel-title { font-size: 16px; color: var(--text-gold); margin: 0 0 8px 0; font-family: "Songti SC", serif; }
+        .duel-content { font-size: 13px; color: var(--text-light); line-height: 1.7; background: var(--bg-card); padding: 12px; border: 1px solid var(--border-color); }
+        .duel-quote {
+            margin-top: 8px; padding: 8px 12px; background: rgba(0,0,0,0.3);
+            border-left: 2px solid var(--accent-red); font-style: italic; color: var(--text-gold); font-size: 13px;
+        }
+
+        /* 汐城坐标 页面样式 */
+        .location-card {
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            margin-bottom: 20px; padding: 16px;
+            border-left: 4px solid var(--text-gold);
+        }
+        .location-title { font-size: 18px; color: var(--text-gold); margin: 0 0 8px 0; font-family: "Songti SC", serif; border-bottom: 1px dashed var(--border-color); padding-bottom: 8px; }
+        .location-tag { display: inline-block; background: rgba(227, 189, 141, 0.1); color: var(--text-gold); border: 1px solid var(--text-gold); padding: 2px 8px; font-size: 11px; margin-bottom: 12px; }
+        .location-desc { font-size: 13px; color: var(--text-light); line-height: 1.8; }
+
+        /* 现实镜像 页面样式 */
+        .reality-section-title {
+            font-size: 18px; color: var(--text-gold); border-bottom: 1px dashed var(--border-color);
+            padding-bottom: 8px; margin: 30px 0 16px 0; font-family: "Songti SC", serif;
+        }
+        .reality-section-title:first-child { margin-top: 0; }
+        .reality-card {
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            padding: 16px; margin-bottom: 16px; border-left: 4px solid var(--accent-red);
+        }
+        .reality-header {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid rgba(26, 51, 77, 0.5); padding-bottom: 10px; margin-bottom: 10px;
+        }
+        .reality-title { font-size: 16px; color: var(--text-gold); font-family: "Songti SC", serif; margin: 0; }
+        .reality-badge { background: transparent; color: var(--text-dim); border: 1px solid var(--text-dim); padding: 2px 6px; font-size: 11px; }
+        .reality-content { font-size: 13px; color: var(--text-light); line-height: 1.8; }
+        .reality-content strong { color: var(--accent-red); }
+
+        @media (min-width: 768px) {
+            body { flex-direction: row; height: 100vh; overflow: hidden; }
+            .sidebar { width: 220px; border-right: 1px solid var(--border-color); border-bottom: none; height: 100vh; }
+            .nav-container { flex-direction: column; padding: 16px 0 0 0; }
+            .nav-item { border-bottom: none; border-left: 2px solid var(--accent-red); padding: 14px 20px; }
+            .nav-item.active { border-bottom: none; border-left: 2px solid var(--accent-red); background: rgba(129, 2, 31, 0.05); }
+            .main-content { padding: 30px; overflow-y: auto; }
+            .grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+            .detail-panel { position: fixed; top: 0; right: 0; left: auto; width: 520px; border-left: 1px solid var(--border-color); box-shadow: -10px 0 30px rgba(0,0,0,0.5); padding: 30px; }
+            .case-img { height: 200px; }
+            .evidence-card { flex-direction: row; align-items: center; }
+            .evidence-img-wrap { width: 40%; height: 180px; flex-shrink: 0; }
+            .evidence-info { flex: 1; padding-left: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h1>《空枪》考据档案</h1>
+        <div class="nav-container">
+            <div class="nav-item active" onclick="switchView('persons', this)">人物卷宗</div>
+            <div class="nav-item" onclick="switchView('duel', this)">双人交锋</div>
+            <div class="nav-item" onclick="switchView('scenes', this)">重案现场</div>
+            <div class="nav-item" onclick="switchView('locations', this)">汐城坐标</div>
+            <div class="nav-item" onclick="switchView('timeline', this)">编年史</div>
+            <div class="nav-item" onclick="switchView('items', this)">关键道具</div>
+            <div class="nav-item" onclick="switchView('reality', this)">现实镜像</div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        
+        <!-- 视图 1：人物卷宗 -->
+        <div id="view-persons" class="view-section active">
+            <div class="toolbar">
+                <input type="text" id="searchInput" class="search-box" placeholder="检索姓名或演员..." onkeyup="filterCards()">
+                <div class="filters" id="filterBtns">
+                    <span class="active" onclick="setFilter('全部', this)">全部卷宗</span>
+                    <span onclick="setFilter('悍匪阵营', this)">悍匪阵营</span>
+                    <span onclick="setFilter('警方专案组', this)">警方专案组</span>
+                    <span onclick="setFilter('豪富与黑帮', this)">豪富与黑帮</span>
+                </div>
+            </div>
+            <div class="grid" id="cardGrid"></div>
+        </div>
+
+        <!-- 视图 2：双人交锋 -->
+        <div id="view-duel" class="view-section">
+            <div class="duel-header">
+                <div class="duel-side">
+                    <h3>万梓强</h3>
+                    <p>悍匪 / 赌徒</p>
+                </div>
+                <div class="duel-vs">VS</div>
+                <div class="duel-side">
+                    <h3>亓宏刚</h3>
+                    <p>刑警 / 执念</p>
+                </div>
+            </div>
+            <p style="font-size:13px; color:var(--text-dim); margin-bottom:20px; text-align:center; font-style:italic;">
+                “嫌疑人万梓强与刑警亓宏刚，既二元对立，又互为镜像。”
+            </p>
+
+            <div class="duel-timeline">
+                <div class="duel-node">
+                    <div class="duel-year">多年前的彩蛋</div>
+                    <h4 class="duel-title">宿命的错轨：游戏厅初遇</h4>
+                    <div class="duel-content">
+                        一切发生之前，两人在同一家游戏厅相遇。那时互不相识，却在这一面之缘中，对彼此留下了最真诚的祝福。
+                    </div>
+                    <div class="duel-quote">“前程似锦。”<br>“一路顺风。”</div>
+                </div>
+
+                <div class="duel-node">
+                    <div class="duel-year">90年代初</div>
+                    <h4 class="duel-title">嚣张的顶点：婚礼抓捕</h4>
+                    <div class="duel-content">
+                        万梓强与骆嘉苑犯下大案后潜回内地老家大摆婚宴。亓宏刚带队直扑婚礼现场，当着所有亲朋好友的面，直接拿下了新郎万梓强。
+                    </div>
+                </div>
+
+                <div class="duel-node">
+                    <div class="duel-year">同乘一车途中</div>
+                    <h4 class="duel-title">金钱逻辑的失效：付车费</h4>
+                    <div class="duel-content">
+                        两人同乘一车，到达目的地后，万梓强让亓宏刚付车费，企图用金钱逻辑收买或试探他。亓宏刚完全不吃这套，直接一句话硬核回击。
+                    </div>
+                    <div class="duel-quote">“后备箱有五百万，不用找了。”——亓宏刚</div>
+                </div>
+
+                <div class="duel-node">
+                    <div class="duel-year">移交香港候审期间</div>
+                    <h4 class="duel-title">狂妄的预言：审讯室对峙</h4>
+                    <div class="duel-content">
+                        万梓强被捕移交香港后，在审讯室里面对亓宏刚毫无惧色。他仗着外面的妻子已经开始做局制造舆论，极其狂妄地提前宣告自己必将脱身。
+                    </div>
+                    <div class="duel-quote">“我会无罪释放走出法庭。”——万梓强<br>“我是兵，你是贼。”——亓宏刚</div>
+                </div>
+
+                <div class="duel-node">
+                    <div class="duel-year">赴港交流期间</div>
+                    <h4 class="duel-title">敌进我退：茶餐厅的菠萝油</h4>
+                    <div class="duel-content">
+                        万梓强成功脱罪后，亓宏刚在香港盯梢他。万梓强发现后，不仅没有躲，反而大摇大摆将一份菠萝油推到亓宏刚面前。这是一场没有硝烟的宣战，展示了他极度傲慢的从容。
+                    </div>
+                    <div class="duel-quote">“等你输的那天，我一定会吃。”——亓宏刚</div>
+                </div>
+
+                <div class="duel-node">
+                    <div class="duel-year">交锋中期</div>
+                    <h4 class="duel-title">傲慢的邀请：电梯卡</h4>
+                    <div class="duel-content">
+                        万梓强特意给亓宏刚备了一张大厦（或电梯）通行卡。在明知道对方是死咬自己的警察的情况下，把卡递给他，是最大的挑衅——“我给你通行证，看你敢不敢来抓我”。
+                    </div>
+                </div>
+
+                <div class="duel-node">
+                    <div class="duel-year">案件白热化</div>
+                    <h4 class="duel-title">极限拉扯：一吨海鲜与一吨炸药</h4>
+                    <div class="duel-content">
+                        两人围绕货车内装载的货物展开正面对撞。万梓强咬死车里是海鲜，亓宏刚则死死盯住那一吨炸药。这是两人逻辑、反侦察与底线的正面对撞。
+                    </div>
+                </div>
+
+                <div class="duel-node">
+                    <div class="duel-year">绝境之中</div>
+                    <h4 class="duel-title">宿命的自负：五发空枪</h4>
+                    <div class="duel-content">
+                        在黑白两道的极限追杀下，万梓强拿枪抵住自己的头，连扣五次全是空响。他没死，从此陷入了极度狂妄的宿命论，以为老天收不了他。
+                    </div>
+                </div>
+
+                <div class="duel-node">
+                    <div class="duel-year">最终收网</div>
+                    <h4 class="duel-title">潮退后的实弹</h4>
+                    <div class="duel-content">
+                        万梓强潜回内地沿海，亓宏刚利用潮汐退去后露出的“蟹道”完成了绝杀围捕。这一次，没有空枪的奇迹，万梓强彻底落网。
+                    </div>
+                </div>
+
+                <div class="duel-node">
+                    <div class="duel-year">案结之后</div>
+                    <h4 class="duel-title">真正的落幕：字条与菠萝油</h4>
+                    <div class="duel-content">
+                        万梓强伏法后，是女警官关苏辰给亓宏刚买来了那份菠萝油，并递上了写着“这是你赢的”字条。亓宏刚将那张曾经象征着挑衅的电梯卡扔进了垃圾桶。这场宿命博弈，在第三人的见证下真正画上句号。
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 视图 3：重案现场 -->
+        <div id="view-scenes" class="view-section">
+            
+            <h2 class="case-category-title">📁 核心大案（万梓强团伙的犯罪轨迹）</h2>
+            
+            <div class="case-file">
+                <div class="case-img" style="background-image: url('images/case_airport.jpg');"></div>
+                <div class="case-header">
+                    <h3 class="case-title">启德机场解款车武装劫案</h3>
+                    <span class="case-id">CASE #1991-0712</span>
+                </div>
+                <div class="case-content">
+                    <div class="case-meta">
+                        <div>涉案人：<span>万梓强、骆嘉苑、荣哥、如姐</span></div>
+                        <div>涉案金额：<span>2亿港元</span></div>
+                    </div>
+                    <div class="case-report">
+                        <strong>【内应情报】</strong>骆嘉苑利用在安保公司做内应的便利，窃取了2亿现金到港的时间、货单及整套安保计划，并精准算好了每一个环节的时间差。<br>
+                        <strong>【作案手法】</strong>万梓强纠集匪徒中途劫下巨款。整个劫案虽有枪战与飙车，但未伤及对方一人。<br>
+                        <strong>【后续洗钱】</strong>劫得的2亿现金，交由荣哥与如姐的渠道进行洗白，团伙成员获得了“第一桶金”。
+                    </div>
+                </div>
+            </div>
+
+            <div class="case-file">
+                <div class="case-img" style="background-image: url('images/case_kidnap.jpg');"></div>
+                <div class="case-header">
+                    <h3 class="case-title">深水湾首富绑架勒索案</h3>
+                    <span class="case-id">CASE #1996-0517</span>
+                </div>
+                <div class="case-content">
+                    <div class="case-meta">
+                        <div>涉案人：<span>万梓强、陈辉延、陈永庭</span></div>
+                        <div>勒索金额：<span>20亿港元</span></div>
+                    </div>
+                    <div class="case-report">
+                        <strong>【起因】</strong>万梓强在跑马场试图结识首富陈辉延，却被对方误认为服务员，用20元港币小费羞辱。这成为他策划绑架的直接动机。<br>
+                        <strong>【现场还原】</strong>万梓强身绑炸药独闯豪宅，在谈判桌上强行端出加满食盐的白粥，逼迫陈辉延吃下，以此作为阶级审判。陈辉延面不改色咽下盐粥。<br>
+                        <strong>【原声台词】</strong>“我只不过抢劫你一个人，而你却抢劫了全香港的人。”
+                    </div>
+                </div>
+            </div>
+
+            <div class="case-file">
+                <div class="case-img" style="background-image: url('images/case_harbor.jpg');"></div>
+                <div class="case-header">
+                    <h3 class="case-title">预谋炸毁港口案</h3>
+                    <span class="case-id">CASE #1998-0126</span>
+                </div>
+                <div class="case-content">
+                    <div class="case-meta">
+                        <div>主犯：<span>万梓强</span></div>
+                        <div>抓捕指挥：<span>亓宏刚</span></div>
+                    </div>
+                    <div class="case-report">
+                        <strong>【案情概述】</strong>在失去兄弟和妻子后，万梓强陷入彻底癫狂，计划用一吨炸药炸毁陈辉延刚购入的港口。<br>
+                        <strong>【抓捕过程】</strong>亓宏刚在明知万梓强运送炸药的情况下决定放行，并亲自假扮货车司机与万梓强通话。最终，亓宏刚利用对潮汐规律的熟悉，在退潮后露出的内地沿海边界“蟹道”设伏，将万梓强精准抓获。<br>
+                        <strong>【原声台词】</strong>“潮起潮落，善恶有报。”
+                    </div>
+                </div>
+            </div>
+
+
+            <h2 class="case-category-title">⛓️ 江湖恩怨（与荣哥、福果叔的黑帮火并）</h2>
+
+            <div class="case-file">
+                <div class="case-img" style="background-image: url('images/case_banquet.jpg');"></div>
+                <div class="case-header">
+                    <h3 class="case-title">荣哥的酷刑与兄弟喋血</h3>
+                    <span class="case-id">CASE #1997-0918</span>
+                </div>
+                <div class="case-content">
+                    <div class="case-meta">
+                        <div>主犯：<span>荣哥（黑警/O记督察）</span></div>
+                        <div>受害者：<span>万梓强及手下</span></div>
+                    </div>
+                    <div class="case-report">
+                        <strong>【起因】</strong>万梓强绑架首富之子后，陈辉延默许其手下/公司高层，授意身为黑警的荣哥对万梓强进行报复。<br>
+                        <strong>【导火索】</strong>荣哥抓了万梓强的小弟阿书和花桥作为诱饵。两人在电话中拼命叫喊让万梓强快跑，但万梓强选择只身赴会。<br>
+                        <strong>【现场经过】</strong>在宴会厅上，万梓强遭遇至暗时刻。他目睹了小弟阿书、花桥、哑狗的死亡，自己也被荣哥施以“烫腰花、拔逆鳞、打边炉、电钻”等酷刑，面目全非。<br>
+                        <strong>【结局反转】</strong>哑狗冒死送来装备，万梓强用身上的炸药扭转局势。他逼荣哥玩俄罗斯轮盘赌，荣哥第一枪便将自己打死。荣哥死在了香港回归的当天。
+                    </div>
+                </div>
+            </div>
+
+            <div class="case-file">
+                <div class="case-img" style="background-image: url('images/case_ancestral.jpg');"></div>
+                <div class="case-header">
+                    <h3 class="case-title">祠堂决裂与宿命判词</h3>
+                    <span class="case-id">CASE #1997-0920</span>
+                </div>
+                <div class="case-content">
+                    <div class="case-meta">
+                        <div>关键人物：<span>万梓强、福果叔</span></div>
+                        <div>地点：<span>传统祠堂</span></div>
+                    </div>
+                    <div class="case-report">
+                        <strong>【事件】</strong>万梓强与荣哥在祠堂对峙并决裂。万梓强嚣张地跨过门槛离去。<br>
+                        <strong>【大佬判词】</strong>大佬福果叔望着他的背影，叹出了精准的判词：“火麒麟，周身引。”意指他满身欲望，一点就爆，注定引火烧身。
+                    </div>
+                </div>
+            </div>
+
+
+            <h2 class="case-category-title">💰 经济罪案（洗钱网络）</h2>
+
+            <div class="case-file">
+                <div class="case-img" style="background-image: url('images/case_laundry.jpg');"></div>
+                <div class="case-header">
+                    <h3 class="case-title">如姐的地下洗钱网络</h3>
+                    <span class="case-id">CASE #1997-1225</span>
+                </div>
+                <div class="case-content">
+                    <div class="case-meta">
+                        <div>操盘手：<span>李慧如（如姐）</span></div>
+                        <div>地位：<span>荣哥的上线</span></div>
+                    </div>
+                    <div class="case-report">
+                        <strong>【作案手法】</strong>万梓强机场劫来的2亿现金，如姐能在几个小时内处理得干干净净。其操作流程为：先打乱资金顺序，然后拿去澳门，购买黄金，最后通过水货渠道换成港币。<br>
+                        <strong>【人物结局】</strong>如姐始终清醒，只赚自己该赚的钱。在荣哥死后，她全身而退。她曾劝骆嘉苑离开，并陪她一起走。
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 视图 4：汐城坐标 -->
+        <div id="view-locations" class="view-section">
+            <h2 style="color:var(--text-gold); border-bottom: 1px dashed var(--border-color); padding-bottom:12px; font-size:16px;">虚构城市：汐城 · 场景档案</h2>
+            <p style="font-size:13px; color:var(--text-dim); margin-bottom:20px;">“遍地黄金、秩序混乱的欲望之城。这里是万梓强发迹的原点，也是无数罪恶交织的漩涡。”</p>
+            
+            <div class="location-card">
+                <h3 class="location-title">跑马场</h3>
+                <div class="location-tag">阶级冲突爆发地</div>
+                <div class="location-desc">汐城权贵与富豪的消遣场所。万梓强在这里试图结识首富陈辉延，却被对方误认为服务生，并随手塞了20元港币小费。这极度屈辱的一刻，直接催生了后来的惊天绑架案。</div>
+            </div>
+
+            <div class="location-card">
+                <h3 class="location-title">陈氏半山豪宅</h3>
+                <div class="location-tag">阶级审判现场</div>
+                <div class="location-desc">首富陈辉延的私宅。万梓强身绑炸药独闯此处，在客厅里逼迫陈辉延吃下加了大量食盐的白粥，用最极端的暴力手段完成了他对顶层阶级的“审判”与勒索。</div>
+            </div>
+
+            <div class="location-card">
+                <h3 class="location-title">古村宗祠</h3>
+                <div class="location-tag">传统秩序与叛道者</div>
+                <div class="location-desc">万梓强与骆嘉苑大摆婚宴的场所，也是他与黑帮决裂的见证地。他在此拜祭关二爷，随后又嚣张地跨过门槛离去，传统黑帮大佬福果叔在此留下了“火麒麟，周身引”的宿命判词。</div>
+            </div>
+
+            <div class="location-card">
+                <h3 class="location-title">游戏厅</h3>
+                <div class="location-tag">宿命初遇点</div>
+                <div class="location-desc">片尾彩蛋中的关键场景。在一切罪恶发生之前，万梓强与年轻的亓宏刚在这里擦肩而过，互道“前程似锦”与“一路顺风”。命运的齿轮在此刻走向了截然相反的方向。</div>
+            </div>
+
+            <div class="location-card">
+                <h3 class="location-title">茶餐厅 / 老字号面家</h3>
+                <div class="location-tag">暗流涌动的心理战</div>
+                <div class="location-desc">充满市井烟火气的老街店铺。万梓强将一份菠萝油推到亓宏刚面前，以此宣告自己的从容；而亓宏刚那句“等你输的那天我一定会吃”，让平民餐桌变成了兵贼博弈的无声战场。</div>
+            </div>
+
+            <div class="location-card">
+                <h3 class="location-title">宴会厅 / 大排档</h3>
+                <div class="location-tag">兄弟喋血与酷刑</div>
+                <div class="location-desc">黑警荣哥设下鸿门宴的地方。万梓强在此目睹兄弟阿书、花桥惨死，自己也被施以酷刑。最终哑狗冒死送来炸药，万梓强身绑炸药在此完成了惨烈的反杀。</div>
+            </div>
+
+            <div class="location-card">
+                <h3 class="location-title">内地沿海边界 / 退潮蟹道</h3>
+                <div class="location-tag">宿命的终点</div>
+                <div class="location-desc">万梓强运送一吨炸药过境及最终逃亡的边界区域。亓宏刚利用潮汐规律，在退潮后露出的沙洲（蟹道）上设伏，完成了对万梓强的终极绝杀，没有空枪，只有法网。</div>
+            </div>
+        </div>
+
+        <!-- 视图 5：编年史 -->
+        <div id="view-timeline" class="view-section">
+            <h2 style="color:var(--text-gold); border-bottom: 1px dashed var(--border-color); padding-bottom:12px; font-size:16px;">电影虚构编年史：万梓强与亓宏刚的宿命轨迹</h2>
+            
+            <div class="year-block" style="margin-top:20px;">
+                <h3 class="year-title">1990年代初 · 命运的岔路口</h3>
+                <div class="event-box">
+                    <div class="event-title">万梓强：偷渡赴港，底层挣扎</div>
+                    <div class="event-desc">内地打工仔万梓强偷渡至虚构的滨海城市“汐城”，在码头做苦力、在赌场做叠码仔。他信奉“要么出人头地，要么人头落地”，在一次被人用枪顶住脑袋连扣五下空枪后，他活了下来，并坚信自己“受上天眷顾”。</div>
+                </div>
+                <div class="event-box">
+                    <div class="event-title">亓宏刚：侦察兵转业，刑警生涯开启</div>
+                    <div class="event-desc">亓宏刚，1963年10月18日生，侦察兵出身，转业后进入海东省公安厅刑警大队。他行事风风火火，带着一股“江湖气”，骨子里刻着朴素的正义感。此时的他，还未与万梓强产生交集。</div>
+                </div>
+                <div class="event-box">
+                    <div class="event-title">片尾彩蛋：游戏厅的宿命初遇</div>
+                    <div class="event-desc">多年前的某天，刚刚用空枪赌赢性命的万梓强，在游戏厅里与年轻的亓宏刚擦肩而过。两人互不相识，却对彼此留下了“前程似锦”与“一路顺风”的祝福。这句“好像见过面”，在多年后一语成谶。</div>
+                </div>
+            </div>
+
+            <div class="year-block">
+                <h3 class="year-title">1991年 · 启德机场解款车劫案（第一桶金）</h3>
+                <div class="event-box">
+                    <div class="event-title">万梓强：联手骆嘉苑，劫取2亿巨款</div>
+                    <div class="event-desc">万梓强结识空姐骆嘉苑后，两人联手作案。骆嘉苑利用安保公司内应的身份，窃取了2亿现金的运输时间、货单及安保计划。万梓强纠集匪徒，在机场解款车运输途中实施武装劫持，整个劫案未伤及一人。赃款通过黑警荣哥及如姐的渠道洗白。</div>
+                </div>
+                <div class="event-box">
+                    <div class="event-title"><span class="event-focus">亓宏刚：接到协查请求，首次介入</span></div>
+                    <div class="event-desc">海东公安厅接到香港警方关于此案的求助。亓宏刚作为负责重大案件的一线刑警，开始接触与万梓强相关的线索。此时，他还不知道这个对手将纠缠他整个职业生涯。</div>
+                </div>
+            </div>
+
+            <div class="year-block">
+                <h3 class="year-title">90年代初 · 婚礼抓捕、审讯与无罪释放</h3>
+                <div class="event-box">
+                    <div class="event-title"><span class="event-focus">亓宏刚：跨省追捕，婚礼现场拿下万梓强</span></div>
+                    <div class="event-desc">万梓强犯案后潜回内地老家，与骆嘉苑大摆婚宴，气焰极度嚣张。亓宏刚带队驱车赶到婚宴现场，当着所有亲朋好友的面，直接带走新郎万梓强，并将其移交给香港警方。这是亓宏刚与万梓强的第一次正面交锋。</div>
+                </div>
+                <div class="event-box">
+                    <div class="event-title">同乘一车：五百万与车费的交锋</div>
+                    <div class="event-desc">两人同乘一车，到达后，万梓强企图用金钱逻辑试探亓宏刚，让他付车费。亓宏刚直接回击“后备箱有五百万，不用找了”，彻底打破了万梓强“金钱万能”的幻想。</div>
+                </div>
+                <div class="event-box">
+                    <div class="event-title"><span class="event-focus">亓宏刚：审讯室的正面交锋</span></div>
+                    <div class="event-desc">在候审期间，万梓强在审讯室内向亓宏刚叫嚣“我会无罪释放走出法庭”，亓宏刚则以“我是兵，你是贼”回应。这不仅是言语挑衅，更是万梓强对规则的公然蔑视。</div>
+                </div>
+                <div class="event-box">
+                    <div class="event-title">庭审反转：万梓强脱罪并反诉警方</div>
+                    <div class="event-desc">万梓强被抓后，妻子骆嘉苑利用“自残”和召开记者招待会制造舆论，污蔑警方暴力执法。香港警方迫于压力将万梓强释放，万梓强甚至反诉警方成功获赔。这次脱罪，让亓宏刚彻底见识了万梓强玩弄规则的手段，执念从此生根。</div>
+                </div>
+            </div>
+
+            <div class="year-block">
+                <h3 class="year-title">90年代中期 · 赴港交流与隔空博弈</h3>
+                <div class="event-box">
+                    <div class="event-title"><span class="event-focus">亓宏刚：赴港交流，茶餐厅的菠萝油</span></div>
+                    <div class="event-desc">亓宏刚被派往香港交流。在一间茶餐厅，万梓强将一份菠萝油推到他面前，眼神挑衅，宣告自己的从容。亓宏刚冷冷回应：“等你输的那天，我一定会吃。”这场没有硝烟的心理战，标志着两人博弈的全面升级。</div>
+                </div>
+                <div class="event-box">
+                    <div class="event-title"><span class="event-focus">亓宏刚：盯梢与试探，电梯卡</span></div>
+                    <div class="event-desc">亓宏刚在香港对万梓强展开盯梢。万梓强不仅没有躲，反而当面开豪车炫耀，并特意为亓宏刚备好了大厦的电梯通行卡，以极度傲慢的姿态邀请他“进来抓我”。亓宏刚屡屡无功而返，但每一次挫败都化作了更深的执念。</div>
+                </div>
+            </div>
+
+            <div class="year-block">
+                <h3 class="year-title">1996年5月 · 深水湾首富绑架案</h3>
+                <div class="event-box">
+                    <div class="event-title">万梓强：腰缠炸药，独闯豪宅</div>
+                    <div class="event-desc">因跑马场被首富陈辉延误认为服务员并用20元小费羞辱，万梓强策划绑架其子陈永庭。他身绑炸药独闯豪宅，在谈判桌上逼迫陈辉延喝下加盐的白粥，并喊出“我抢劫你一个人，你抢劫全香港人”的阶级宣言。最终，他成功勒索巨额赎金。</div>
+                </div>
+                <div class="event-box">
+                    <div class="event-title"><span class="event-focus">亓宏刚：全程追查，利用身份优势搜寻藏票地点</span></div>
+                    <div class="event-desc">在绑架案发生后，亓宏刚基本全程参与了追查工作。他利用自己内地刑警的身份优势，试图追查赎金的藏匿地点，但最终跑了空。万梓强再次逃脱。</div>
+                </div>
+            </div>
+
+            <div class="year-block">
+                <h3 class="year-title">1997年 · 回归前后的黑白清算</h3>
+                <div class="event-box">
+                    <div class="event-title">万梓强：与黑警荣哥彻底决裂</div>
+                    <div class="event-desc">陈辉延默许手下授意黑警荣哥报复万梓强。荣哥绑架了万梓强的小弟阿书和花桥，设下酷刑宴。万梓强只身赴会，目睹兄弟惨死，自己也被施以“烫腰花”等酷刑。在小弟哑狗冒死送来炸药后，万梓强完成反杀，逼荣哥玩俄罗斯轮盘赌，荣哥第一枪自毙。</div>
+                </div>
+                <div class="event-box">
+                    <div class="event-title">祠堂决裂与宿命判词</div>
+                    <div class="event-desc">万梓强与荣哥在祠堂决裂，跨过门槛离去。福果叔望着他的背影，叹出判词：“火麒麟，周身引。”</div>
+                </div>
+            </div>
+
+            <div class="year-block">
+                <h3 class="year-title">1997年底-1998年 · 港口案与终极收网</h3>
+                <div class="event-box">
+                    <div class="event-title">万梓强：预谋炸毁港口，疯狂的顶点</div>
+                    <div class="event-desc">在失去兄弟和妻子后，万梓强陷入彻底癫狂。他计划用一吨炸药炸毁陈辉延名下的港口，作为最后的报复。他利用“一吨海鲜”作为伪装，试图将炸药运入境内。</div>
+                </div>
+                <div class="event-box">
+                    <div class="event-title"><span class="event-focus">亓宏刚：换位思考，提出“我们要比他更疯”</span></div>
+                    <div class="event-desc">面对屡屡失效的常规手段，亓宏刚提出颠覆性的侦破思路：“他疯，我们要比他更疯。”他不再思考最优解，而是彻底代入万梓强的疯狂逻辑，预判他的行动。在电话亭中，他一度惊觉“不对不对，他在利用我”，但随即完成了更彻底的心理反转。</div>
+                </div>
+                <div class="event-box">
+                    <div class="event-title"><span class="event-focus">亓宏刚：假扮司机，潮退后的精准抓捕</span></div>
+                    <div class="event-desc">亓宏刚亲自假扮货车司机，用一口广西口音的普通话与万梓强周旋。香港回归后，万梓强潜回内地沿海边界，企图声东击西。亓宏刚利用对潮汐规律和地理常识的熟悉，在退潮后露出的沙螺镇海路（蟹道）上，精准抓获了准备偷渡的万梓强。</div>
+                </div>
+                <div class="event-box">
+                    <div class="event-title">宿命的终局：实弹与告别</div>
+                    <div class="event-desc">这一次，没有空枪的奇迹。万梓强被依法审判并执行死刑。案件结束后，女警官关苏辰给亓宏刚买来了那份迟到的菠萝油，并递上了写着“这是你赢的”字条。亓宏刚将万梓强曾经递给他的电梯卡扔进了垃圾桶，这场持续多年的宿命博弈，终于画上了句号。</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 视图 6：关键道具 -->
+        <div id="view-items" class="view-section">
+            <h2 style="color:var(--text-gold); border-bottom: 1px dashed var(--border-color); padding-bottom:12px; font-size:16px;">贯穿全片的关键道具与宿命信物</h2>
+            
+            <div class="evidence-container" style="margin-top:20px;">
+                
+                <!-- 游戏币 -->
+                <div class="evidence-card">
+                    <div class="evidence-tag">ITEM 01</div>
+                    <div class="evidence-img-wrap">
+                        <div class="evidence-img" style="background-image: url('images/item_coin.jpg');"></div>
+                    </div>
+                    <div class="evidence-info">
+                        <h4>宿命的起点：游戏币</h4>
+                        <p><strong>【档案记录】</strong>出现在多年前游戏厅的片尾彩蛋中。这枚普通的游戏币是万梓强与年轻的亓宏刚擦肩而过的见证。一个走向了赌局，一个走向了警局，宿命的齿轮就此错轨。</p>
+                    </div>
+                </div>
+
+                <!-- 菠萝包 -->
+                <div class="evidence-card">
+                    <div class="evidence-tag">ITEM 02</div>
+                    <div class="evidence-img-wrap">
+                        <div class="evidence-img" style="background-image: url('images/item_bun.jpg');"></div>
+                    </div>
+                    <div class="evidence-info">
+                        <h4>心理战的筹码：菠萝包</h4>
+                        <p><strong>【档案记录】</strong>万梓强在茶餐厅推给亓宏刚的食物。这是一场没有硝烟的宣战，万梓强以极度傲慢的姿态展现从容。亓宏刚那句“等你输的那天，我一定会吃”，成为了两人博弈的誓言。直到最后，这份菠萝包由女警官关苏辰交到了亓宏刚手中，完成闭环。</p>
+                    </div>
+                </div>
+
+                <!-- 万梓强身份证 -->
+                <div class="evidence-card">
+                    <div class="evidence-tag">ITEM 03</div>
+                    <div class="evidence-img-wrap">
+                        <div class="evidence-img" style="background-image: url('images/id_wanziqiang.jpg');"></div>
+                    </div>
+                    <div class="evidence-info">
+                        <h4>底层跨越的证明：万梓强身份证</h4>
+                        <p><strong>【档案记录】</strong>象征着万梓强在虚构城市“汐城”打拼的身份烙印。从底层的码头苦力到叠码仔，再到后来不可一世的悍匪，这张证件记录了他极度渴求财富与权力的野心。</p>
+                    </div>
+                </div>
+
+                <!-- 万梓强回乡证 -->
+                <div class="evidence-card">
+                    <div class="evidence-tag">ITEM 04</div>
+                    <div class="evidence-img-wrap">
+                        <div class="evidence-img" style="background-image: url('images/id_home_return.jpg');"></div>
+                    </div>
+                    <div class="evidence-info">
+                        <h4>末路的通行证：万梓强回乡证</h4>
+                        <p><strong>【档案记录】</strong>这是万梓强往返两地的关键凭证。当他以为可以用金钱和炸药掌控一切时，正是沿着这条回乡之路，他在内地沿海的蟹道上迎来了自己无法逃脱的末日法网。</p>
+                    </div>
+                </div>
+
+                <!-- 亓宏刚身份证 -->
+                <div class="evidence-card">
+                    <div class="evidence-tag">ITEM 05</div>
+                    <div class="evidence-img-wrap">
+                        <div class="evidence-img" style="background-image: url('images/id_qihonggang.jpg');"></div>
+                    </div>
+                    <div class="evidence-info">
+                        <h4>执念的底色：亓宏刚身份证</h4>
+                        <p><strong>【档案记录】</strong>证件上的出生年份暗合了他历经沧桑的阅历。他是一个行事风风火火、带着江湖气，但骨子里刻着朴素正义感的内地刑警。</p>
+                    </div>
+                </div>
+
+                <!-- 亓宏刚警察证 -->
+                <div class="evidence-card">
+                    <div class="evidence-tag">ITEM 06</div>
+                    <div class="evidence-img-wrap">
+                        <div class="evidence-img" style="background-image: url('images/id_police_badge.jpg');"></div>
+                    </div>
+                    <div class="evidence-info">
+                        <h4>绝对的正义：亓宏刚警察证</h4>
+                        <p><strong>【档案记录】</strong>这张证件代表着规则的底线。在面对万梓强“我会无罪释放走出法庭”的嚣张挑衅时，亓宏刚用“我是兵，你是贼”的宣言，亮出了不可逾越的正邪底线。</p>
+                    </div>
+                </div>
+
+                <!-- 金条上的橘子瓣logo -->
+                <div class="evidence-card">
+                    <div class="evidence-tag">ITEM 07</div>
+                    <div class="evidence-img-wrap">
+                        <div class="evidence-img" style="background-image: url('images/logo_orange.jpg');"></div>
+                    </div>
+                    <div class="evidence-info">
+                        <h4>权贵的烙印：橘子瓣金条Logo</h4>
+                        <p><strong>【档案记录】</strong>洗钱网络中用于转移巨额财富的金条印记。橘子瓣的形状冷酷而刺眼，它是对万梓强早年因偷窃被打断鼻子的嘲讽，也是阶级差异最赤裸裸的具象化象征。</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 视图 7：现实镜像 -->
+        <div id="view-reality" class="view-section">
+            <h2 style="color:var(--text-gold); border-bottom: 1px dashed var(--border-color); padding-bottom:12px; font-size:16px;">真实与虚构的镜像对照</h2>
+            <p style="font-size:13px; color:var(--text-dim); margin-bottom:20px;">电影在片头声明了“故事纯属虚构”。片中的角色与案件，多是从真实历史中提取碎片，重新拼接而成的杂糅体。</p>
+
+            <h3 class="reality-section-title">🎭 人物原型对照</h3>
+            
+            <div class="reality-card">
+                <div class="reality-header">
+                    <h4 class="reality-title">万梓强 (朱一龙 饰)</h4>
+                    <span class="reality-badge">杂糅体</span>
+                </div>
+                <div class="reality-content">
+                    <strong>核心原型：</strong>“世纪贼王” 张子强。<br>
+                    <strong>融合特征：</strong>同时融合了叶继欢（重火力悍匪）、季炳雄（狡诈隐匿）等人的特征。<br>
+                    <strong>细节考据：</strong>片中万梓强生日（1961年5月17日）与张子强（1955年4月7日）的日期尾数都带“7”；他青年时期来港、在酒店遭受酷刑后跳舞等情节，是基于原型和电影加工的人物塑造。
+                </div>
+            </div>
+
+            <div class="reality-card">
+                <div class="reality-header">
+                    <h4 class="reality-title">骆嘉苑 (卫诗雅 饰)</h4>
+                    <span class="reality-badge">直接借用</span>
+                </div>
+                <div class="reality-content">
+                    <strong>核心原型：</strong>张子强的妻子 罗艳芳。<br>
+                    <strong>细节考据：</strong>电影通过“骆”与“罗”的姓氏谐音进行暗示，并复刻了现实中罗艳芳在法院门前穿粉色衣服比V字手势拍照的经典画面。
+                </div>
+            </div>
+
+            <div class="reality-card">
+                <div class="reality-header">
+                    <h4 class="reality-title">陈辉延 (梁家辉 饰)</h4>
+                    <span class="reality-badge">仅取意象</span>
+                </div>
+                <div class="reality-content">
+                    <strong>核心原型：</strong>香港首富 李嘉诚。<br>
+                    <strong>细节考据：</strong>电影中“陈辉延”的儿子被绑架，直接对应了现实中李嘉诚长子李泽钜被绑架的案件。
+                </div>
+            </div>
+
+            <div class="reality-card">
+                <div class="reality-header">
+                    <h4 class="reality-title">亓宏刚 & 荣哥</h4>
+                    <span class="reality-badge">虚构角色</span>
+                </div>
+                <div class="reality-content">
+                    这两个角色没有单一的真实原型。亓宏刚是电影为强化“双雄对决”而虚构的内地刑警，代表了追捕张子强的内地公安力量；荣哥则是虚构的“黑警”形象，代表了特定历史时期香港警队与黑社会之间复杂的灰色生态。
+                </div>
+            </div>
+
+            <h3 class="reality-section-title">⚖️ 核心案件原型</h3>
+
+            <div class="reality-card">
+                <div class="reality-header">
+                    <h4 class="reality-title">运钞车劫案</h4>
+                    <span class="reality-badge">启德机场劫案</span>
+                </div>
+                <div class="reality-content">
+                    对应<strong>1991年香港启德机场装甲运钞车劫案</strong>，被劫金额高达1.7亿港元。这也是张子强犯罪集团的第一桶金。
+                </div>
+            </div>
+
+            <div class="reality-card">
+                <div class="reality-header">
+                    <h4 class="reality-title">绑架富商案</h4>
+                    <span class="reality-badge">深水湾绑架案</span>
+                </div>
+                <div class="reality-content">
+                    对应<strong>1996年张子强绑架李嘉诚长子李泽钜案</strong>。电影中“腰缠炸药独闯豪宅”的经典场面，就源自于此。
+                </div>
+            </div>
+
+            <div class="reality-card">
+                <div class="reality-header">
+                    <h4 class="reality-title">购买炸药案</h4>
+                    <span class="reality-badge">江门落网案</span>
+                </div>
+                <div class="reality-content">
+                    对应<strong>张子强非法购买800多公斤烈性炸药</strong>的罪行。虽然电影将落网地改为了退潮的“蟹道”，但在现实历史中，这也是他最终在内地落网的关键原因。
+                </div>
+            </div>
+
+            <h3 class="reality-section-title">🗺️ “汐城”现实取景对照</h3>
+            
+            <div class="reality-card">
+                <div class="reality-header">
+                    <h4 class="reality-title">珠海 / 佛山 / 广州 / 江门</h4>
+                    <span class="reality-badge">广东多地拼贴</span>
+                </div>
+                <div class="reality-content">
+                    电影的核心舞台“汐城”是虚构的滨海城市，其视觉形象是由广东多地的实景拼凑而成的。<br>
+                    <strong>珠海：</strong>高栏港货柜码头、横琴隧道、珠海机场。<br>
+                    <strong>佛山：</strong>三水区长岐古村的卢氏大宗祠（复古婚礼场景）。<br>
+                    <strong>广州：</strong>中国大酒店等具有年代感的地标。<br>
+                    <strong>江门：</strong>蓬江、新会、台山等地的骑楼老街。
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- 详情抽屉 -->
+    <div class="detail-panel" id="detailPanel">
+        <div class="detail-close" onclick="closeDetail()">[ ✕ 归入档案柜 ]</div>
+        <div id="detailContent"></div>
+    </div>
+
+    <script>
+        const dossierData = {
+            wanziqiang: {
+                name: "万梓强", actor: "朱一龙", category: "悍匪阵营",
+                photo: "images/wanziqiang.jpg",
+                meta: { born: "1961年5月17日", origin: "内地赴港，底层出身", hab: "歪鼻梁、拆香烟过滤嘴、吃菠萝油", fate: "1998年12月被执行死刑" },
+                quotes: [
+                    { text: "我帮你们问问老天。", context: "码头绝境中拿枪抵头时的狂言" },
+                    { text: "要么出人头地，要么人头落地。", context: "初入香港时的底层誓言" },
+                    { text: "我知道总有一颗子弹在等着我。", context: "逃亡前夕对宿命的预感" },
+                    { text: "我绑架的只是你的儿子，而你绑架的是全香港人。", context: "对首富陈辉延的谈判反击" },
+                    { text: "我会无罪释放走出法庭。", context: "审讯室中直视亓宏刚的挑衅" }
+                ],
+                trajectory: [
+                    "1961年：出生于内地底层家庭，幼年因偷窃被打断鼻子无钱医治，留下歪鼻梁。",
+                    "80年代：偷渡赴港，从码头苦力做起，后转入赌场成为叠码仔。",
+                    "1991年：参与启德机场解款车劫案，展现极强武装火力。",
+                    "1996年：策划并实施深水湾绑架案，逼迫首富陈辉延喝盐粥。",
+                    "1997年：因利益分配与荣哥决裂，遭遇黑白两道追杀。",
+                    "1998年1月：因非法购买800公斤炸药在内地沿海被亓宏刚抓获。",
+                    "1998年12月：被依法执行死刑。"
+                ],
+                relations: "妻子骆嘉苑；宿敌亓宏刚（互为镜像）；绑架目标陈辉延父子；利益冲突者荣哥。",
+                dossierText: "他的宿命是一场悲剧。他把时代的缝隙当成了犯罪的阶梯，用暴力和空枪赌天意，却不知命运的馈赠早就在暗中标好了价码。"
+            },
+            qihonggang: {
+                name: "亓宏刚", actor: "檀健次", category: "警方专案组",
+                photo: "images/qihonggang.jpg",
+                meta: { born: "1963年10月18日", origin: "海东省公安厅刑警，侦察兵出身", hab: "翻旧档案、胃疼捂肚、以疯制疯", fate: "成功将万梓强绳之以法" },
+                quotes: [
+                    { text: "你是有多自卑？", context: "最戳万梓强内心的一句话" },
+                    { text: "他疯，我们要比他更疯。", context: "影片后半段提出的侦破方案" },
+                    { text: "潮起潮落，善恶有报。", context: "抓获万梓强后的最终告诫" },
+                    { text: "后备箱有五百万，不用找了。", context: "万梓强企图用钱付车费时的回击" }
+                ],
+                trajectory: [
+                    "1980年代：从侦察兵转业进入公安系统，以吃苦踏实著称。",
+                    "90年代初：带队在内地抓获万梓强并转交香港警方，但万梓强通过舆论脱罪。",
+                    "1995年：截获万梓强团伙走私的炸药原料，首次进入专案组视野。",
+                    "1997年：接手万梓强专案组，提出“以疯制疯”的侦破方案。",
+                    "1998年1月：在内地沿海蟹道成功抓获万梓强。"
+                ],
+                relations: "搭档关苏辰；终身宿敌万梓强（互为镜像）。",
+                dossierText: "他不靠天意，靠足迹和档案。万梓强赌老天不收他，亓宏刚就用人间法网来收。"
+            },
+            luojiayuan: {
+                name: "骆嘉苑", actor: "卫诗雅", category: "悍匪阵营",
+                photo: "images/luojiayuan.jpg",
+                meta: { born: "香港本地，具体不详", origin: "空姐，本地市民", hab: "对风险极度敏感", fate: "在万梓强落网前后脱身" },
+                quotes: [
+                    { text: "你绑架的是全香港人。", context: "劝阻万梓强收手时的绝望" },
+                    { text: "收手吧，你斗不过他们的。", context: "面对陈辉延庞大势力的担忧" }
+                ],
+                trajectory: ["80年代末：作为空姐与赴港的万梓强相识。", "1991年：利用安保公司内应的身份，为劫案提供关键情报。", "1996年：深知陈辉延势力的庞大，劝万梓强收手未果。", "1997年：在荣哥死后，选择离开。"],
+                relations: "丈夫万梓强。",
+                dossierText: "她是万梓强命运里唯一的刹车片，却最终没能阻止列车脱轨。"
+            },
+            chenhuiyan: {
+                name: "陈辉延", actor: "梁家辉", category: "豪富与黑帮",
+                photo: "images/chenhuiyan.jpg",
+                meta: { born: "香港老牌资本世家", origin: "本港首富、地产大亨", hab: "戴平价表，私藏顶级名表", fate: "在绑架中脱险" },
+                quotes: [{ text: "万物皆有价。", context: "面对巨额勒索时的冷酷逻辑" }, { text: "我和你，是不同世界的人。", context: "嘲讽万梓强的阶级跨越妄想" }],
+                trajectory: ["90年代初：在香港地产界叱咤风云。", "1996年：其子被绑架，与万梓强展开惊心动魄的盐粥对峙。", "1996年底：默许其手下/公司高层，授意黑警荣哥对万梓强进行残酷报复。"],
+                relations: "儿子陈永庭；与万梓强有直接的阶级对抗。",
+                dossierText: "他代表了资本主义的铁律：万物皆有价码。面对枪口，他在谈判桌上赢回了里子和面子。"
+            },
+            guansuchen: {
+                name: "关苏辰", actor: "李施嬅", category: "警方专案组",
+                photo: "images/guansuchen.jpg",
+                meta: { born: "香港本地警队精英", origin: "香港警务处重案组", hab: "严谨重程序", fate: "协同完成跨境抓捕，收尾案件" },
+                quotes: [],
+                trajectory: ["1995年：处理多宗重案。", "1997年：与内地专案组对接。", "1998年：提供关键技术支持，案结后为亓宏刚送上字条与菠萝油。"],
+                relations: "搭档亓宏刚；追捕对象万梓强。",
+                dossierText: "代表了法治社会的基石。她是这场双人博弈最终的见证人与收尾者。"
+            },
+            rongge: {
+                name: "荣哥", actor: "袁富华", category: "豪富与黑帮",
+                photo: "images/rongge.jpg",
+                meta: { born: "本港灰色地带", origin: "黑警 / O记督察", hab: "黑白通吃、精于算计", fate: "被逼玩俄罗斯轮盘赌自毙" },
+                quotes: [{ text: "在我的地盘，是龙你得盘着。", context: "对万梓强的威胁" }],
+                trajectory: ["80年代末：身为O记督察，暗中勾结黑社会。", "1991年：为万梓强的2亿赃款提供洗钱渠道。", "1996年：受陈辉延手下/高层授意，对万梓强施以酷刑。", "1997年：在宴会上将万梓强折磨至面目全非。最终局势反转，被逼玩俄罗斯轮盘赌，第一枪便将自己打死。"],
+                relations: "合作人李慧如；敌对万梓强。",
+                dossierText: "旧时代黑警的残影。兵贼同体的身份让他黑白通吃，但也最终死在了自己制定的残酷游戏下。"
+            },
+            fuguoshu: {
+                name: "福果叔", actor: "李修贤", category: "豪富与黑帮",
+                photo: "images/fuguoshu.jpg",
+                meta: { born: "深水埗", origin: "传统社团大佬", hab: "讲辈分规矩", fate: "势力被时代碾压" },
+                quotes: [{ text: "火麒麟，周身引。", context: "对万梓强宿命的判词" }],
+                trajectory: ["80年代：在深水埗德高望重。", "1997年：在祠堂目送万梓强跨过门槛离去，叹出其悲剧宿命。"],
+                relations: "敌对万梓强。",
+                dossierText: "他看透了万梓强的悲剧宿命，却无法阻止自己被拖入深渊。"
+            },
+            chenyongting: {
+                name: "陈永庭", actor: "李治廷", category: "豪富与黑帮",
+                photo: "images/chenyongting.jpg",
+                meta: { born: "豪富之家", origin: "陈辉延长子", hab: "缺乏防备心", fate: "安全获救" },
+                quotes: [],
+                trajectory: ["1996年：被武装劫持，成为谈判筹码。"],
+                relations: "父亲陈辉延；绑架者万梓强。",
+                dossierText: "在炸药面前，他与20块钱小费毫无区别。"
+            },
+            lihuiru: {
+                name: "李慧如（如姐）", actor: "惠英红", category: "豪富与黑帮",
+                photo: "images/lihuiru.jpg",
+                meta: { born: "香港本地", origin: "洗钱操盘手", hab: "从容不迫", fate: "全身而退" },
+                quotes: [{ text: "钱一旦转起来，就洗白了，人也一样。", context: "处理赃款时的名言" }],
+                trajectory: ["1990年-1996年：建立庞大洗钱网络。", "1991年：在几小时内处理干净万梓强劫来的2亿现金。", "1997年：在荣哥死后全身而退，带着骆嘉苑离开。"],
+                relations: "上家荣哥；服务对象万梓强。",
+                dossierText: "把黑钱洗成白钱，也把狂妄洗成催命符。"
+            },
+            ashu: {
+                name: "阿书", actor: "王戈", category: "悍匪阵营",
+                photo: "images/ashu.jpg",
+                meta: { born: "内地赴港", origin: "底层苦力", hab: "讲义气", fate: "为掩护万梓强牺牲" },
+                quotes: [{ text: "强哥，不要管我们，快跑！", context: "被荣哥折磨时的嘶吼" }],
+                trajectory: ["80年代末：与万梓强一同偷渡。", "1996年：负责火力掩护。", "1997年：被荣哥绑架折磨致死。"],
+                relations: "兄弟万梓强。",
+                dossierText: "他死于忠诚，也死于无法收手的贪婪。"
+            },
+            huaqiao: {
+                name: "花桥", actor: "刘登宇", category: "悍匪阵营",
+                photo: "images/huaqiao.jpg",
+                meta: { born: "香港本地", origin: "街头混混", hab: "战斗力极强", fate: "被折磨致死" },
+                quotes: [],
+                trajectory: ["1991年：加入团伙。", "1997年：在码头被俘惨死。"],
+                relations: "老大万梓强。",
+                dossierText: "齿轮卡住，就被毫不留情碾碎。"
+            },
+            yagou: {
+                name: "哑狗", actor: "赵润南", category: "悍匪阵营",
+                photo: "images/yagou.jpg",
+                meta: { born: "内地", origin: "亡命徒", hab: "沉默寡言", fate: "交火身亡" },
+                quotes: [],
+                trajectory: ["1993年：跟随万梓强。", "1997年：在宴会上冒死送装备，掩护万梓强反击。"],
+                relations: "老大万梓强。",
+                dossierText: "至死没有多话，用命证明了时代的残忍。"
+            },
+            heikun: {
+                name: "黑坤", actor: "沈震轩", category: "悍匪阵营",
+                photo: "images/heikun.jpg",
+                meta: { born: "香港", origin: "黑帮成员", hab: "心狠手辣", fate: "入狱服刑" },
+                quotes: [],
+                trajectory: ["90年代：加入万梓强团伙。"],
+                relations: "转投万梓强。",
+                dossierText: "在新旧势力夹缝中求生的投机者。"
+            },
+            shalishu: {
+                name: "沙梨叔", actor: "林雪", category: "豪富与黑帮",
+                photo: "images/shalishu.jpg",
+                meta: { born: "香港", origin: "地头蛇", hab: "贪生怕死", fate: "被警方策反" },
+                quotes: [],
+                trajectory: ["90年代：向警方供出行踪。"],
+                relations: "与警方合作。",
+                dossierText: "压死骆驼的最后一根稻草。"
+            },
+            dingfeng: {
+                name: "丁烽", actor: "黄觉", category: "警方专案组",
+                photo: "images/dingfeng.jpg",
+                meta: { born: "内地公安", origin: "老刑警", hab: "保护后辈", fate: "布控中负伤" },
+                quotes: [],
+                trajectory: ["1997年：替亓宏刚挡下子弹。"],
+                relations: "战友亓宏刚。",
+                dossierText: "用血肉践行誓言。"
+            },
+            jiangtian: {
+                name: "姜天", actor: "俞灏明", category: "警方专案组",
+                photo: "images/jiangtian.jpg",
+                meta: { born: "内地公安", origin: "特警新锐", hab: "身手矫健", fate: "成功抓捕" },
+                quotes: [],
+                trajectory: ["1998年：制服万梓强。"],
+                relations: "队长亓宏刚。",
+                dossierText: "新时代警界力量。"
+            },
+            zhaohuanxin: {
+                name: "赵欢欣", actor: "叶童", category: "警方专案组",
+                photo: "images/zhaohuanxin.jpg",
+                meta: { born: "香港海关", origin: "稽查员", hab: "观察入微", fate: "发现走私线索" },
+                quotes: [],
+                trajectory: ["1995年：截获炸药原料。"],
+                relations: "情报提供者。",
+                dossierText: "兵与贼的边境博弈。"
+            },
+            changweijie: {
+                name: "常为戒", actor: "倪大红", category: "警方专案组",
+                photo: "images/changweijie.jpg",
+                meta: { born: "老警察", origin: "档案管理员", hab: "记忆力惊人", fate: "病逝" },
+                quotes: [],
+                trajectory: ["1997年：移交旧卷宗。"],
+                relations: "引导者亓宏刚。",
+                dossierText: "线索藏在泛黄的案卷里。"
+            },
+            ouyangjiahua: {
+                name: "欧阳家华", actor: "张兆辉", category: "警方专案组",
+                photo: "images/ouyangjiahua.jpg",
+                meta: { born: "香港警队", origin: "高层", hab: "利益至上", fate: "被调查" },
+                quotes: [],
+                trajectory: ["1996年：充当保护伞。", "1998年：落马。"],
+                relations: "保护伞陈辉延。",
+                dossierText: "体制内蛀虫，比悍匪更可怕。"
+            }
+        };
+
+        function renderCards() {
+            const grid = document.getElementById('cardGrid');
+            let html = '';
+            for (const key in dossierData) {
+                const d = dossierData[key];
+                const brief = d.dossierText.substring(0, 45) + '...';
+                html += `
+                <div class="card" data-category="${d.category}" data-name="${d.name}" onclick="openDetail('${key}')">
+                    <div class="card-header">
+                        <div class="photo-frame" style="background-image: url('${d.photo}');"></div>
+                        <div class="card-title-box">
+                            <h2 class="card-title">${d.name}</h2>
+                            <span class="actor-name">${d.actor} 饰</span>
+                        </div>
+                    </div>
+                    <div class="tag">${d.category}</div>
+                    <div class="story-brief">${d.trajectory[0]}<br>${brief}</div>
+                </div>
+                `;
+            }
+            grid.innerHTML = html;
+            filterCards();
+        }
+
+        function openDetail(key) {
+            const data = dossierData[key];
+            if (!data) return;
+            const container = document.getElementById('detailContent');
+            
+            const metaHtml = Object.entries(data.meta).map(([k, v]) => {
+                const labelMap = { born: "出生/年月", origin: "籍贯/背景", hab: "体征/惯常行为", fate: "最终档案状态" };
+                return `<div class="data-item"><strong>${labelMap[k] || k}</strong><span>${v}</span></div>`;
+            }).join('');
+            
+            const trajectoryHtml = data.trajectory.map(t => `<li>${t}</li>`).join('');
+            
+            let quotesHtml = '';
+            if (data.quotes && data.quotes.length > 0) {
+                const qList = data.quotes.map(q => `
+                    <div class="quote-block">
+                        <div class="quote-text">“${q.text}”</div>
+                        <div class="quote-context">—— ${q.context}</div>
+                    </div>
+                `).join('');
+                quotesHtml = `
+                <div class="dossier-block">
+                    <div class="dossier-title">原声台词记录</div>
+                    <div class="dossier-content">${qList}</div>
+                </div>`;
+            }
+            
+            container.innerHTML = `
+                <div class="detail-header">
+                    <div class="photo-frame" style="background-image:url('${data.photo}')"></div>
+                    <div>
+                        <h2 class="detail-title">${data.name}</h2>
+                        <div class="actor-name" style="font-size:13px;">饰演：${data.actor}</div>
+                    </div>
+                </div>
+                <div class="dossier-block">
+                    <div class="dossier-title">身份信息</div>
+                    <div class="dossier-content"><div class="data-grid">${metaHtml}</div></div>
+                </div>
+                ${quotesHtml}
+                <div class="dossier-block">
+                    <div class="dossier-title">命运履历</div>
+                    <div class="dossier-content"><ul class="fate-timeline">${trajectoryHtml}</ul></div>
+                </div>
+                <div class="dossier-block">
+                    <div class="dossier-title">人际图谱</div>
+                    <div class="dossier-content">${data.relations}</div>
+                </div>
+                <div class="dossier-block">
+                    <div class="dossier-title">档案批注</div>
+                    <div class="dossier-content">${data.dossierText}</div>
+                </div>
+            `;
+            document.getElementById('detailPanel').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeDetail() {
+            document.getElementById('detailPanel').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function switchView(viewId, navElement) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById('view-' + viewId).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            if(navElement) navElement.classList.add('active');
+        }
+
+        let currentFilter = '全部';
+        function setFilter(category, btnElement) {
+            currentFilter = category;
+            document.querySelectorAll('#filterBtns span').forEach(el => el.classList.remove('active'));
+            btnElement.classList.add('active');
+            filterCards();
+        }
+
+        function filterCards() {
+            const searchText = document.getElementById('searchInput').value.trim().toLowerCase();
+            const cards = document.querySelectorAll('#cardGrid .card');
+            cards.forEach(card => {
+                const category = card.getAttribute('data-category');
+                const name = card.getAttribute('data-name').toLowerCase();
+                const actorName = card.querySelector('.actor-name').innerText.replace('饰', '').trim().toLowerCase();
+                const matchCategory = (currentFilter === '全部' || category === currentFilter);
+                const matchSearch = name.includes(searchText) || actorName.includes(searchText);
+                card.style.display = (matchCategory && matchSearch) ? 'block' : 'none';
+            });
+        }
+
+        renderCards();
+    </script>
+</body>
+</html>
